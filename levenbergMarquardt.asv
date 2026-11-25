@@ -1,0 +1,130 @@
+function [x,resnorm,residual] = levmarq(func,x0)
+    % The idea of L-M is to update the parameters x0 to better fit the
+    % data. This is done by simplifying the second gradient of func with
+    % respect to x by replacing the sum with a simple scaled identity
+    % matrix.
+    % func = F(x) = (f1(x), f2(x),..., fm(x))^T, m = # samples
+
+    % First we need the gradient of F, we use second-order cental finite difference
+    % df/dxi = (f(x+h e_i) - f(x-h e_i))/2h
+    
+    % Func is a column vector of f1,... fm
+
+    m = length(func(x0));
+    n = length(x0);
+    %h = 1e-6; % update
+    x = x0;
+    residual = func(x); 
+
+    prev_resnorm = Inf;
+    resnorm = sum(abs(func(x)));
+    nrIterations = 0;
+
+    lambda = 1; % damping factor
+
+    h = 1e-8; % fixme
+    while abs(resnorm-prev_resnorm) > 1e-10 && nrIterations < 100
+        jacobian = zeros(n,m); % number of datapoints  x nr parameters
+        for i = 1:n
+            x_right = x; % copy
+            x_left = x; % copy
+            x_right(i) = x_right(i) + h;
+            x_left(i) = x_left(i) - h;
+
+            left = func(x_left);
+            right = func(x_right);
+            jacobian(i,:) = (right - left) / (2*h); % central difference
+        end
+        JTJ = jacobian * jacobian.';
+        %norm_jtj = norm(JTJ);
+
+        LH = JTJ + lambda*eye(n); % times p
+        RH = -jacobian * func(x);
+        p = LH \ RH;
+        x = x + p;
+
+        prev_resnorm = resnorm;
+        residual = func(x);
+        resnorm = sum(residual);
+        % Check if next step reduces the overall error
+        if resnorm < prev_resnorm
+            lambda = lambda/10; % reduce damping 
+        else
+            lambda = lambda*10; % increase damping
+            % reject step as our error increased
+            x = x-p;
+
+        end
+        nrIterations = nrIterations+ 1;
+    end
+end
+
+
+
+
+% 2, example func y(t) = x_1 e^(x_2 t)
+function [F] = getObjectiveFunction(x)
+    ti = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
+    yi = [7.2, 3.0, 1.5, 0.85, 0.48, 0.25, 0.20, 0.15];
+    F = (yi - x(1)*exp(x(2)*ti)).^2.';
+end
+
+
+function [err] = totalErr(x)
+    err = sum(getObjectiveFunction(x));
+end
+
+
+function plot_func(x)
+    ti = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
+    yi = [7.2, 3.0, 1.5, 0.85, 0.48, 0.25, 0.20, 0.15];
+
+    t = linspace(0,5,100);
+    y = x(1)*exp(x(2)*t);
+
+    scatter(ti, yi, 'filled')
+    hold on
+    plot(t, y, '-r', 'LineWidth',1.5)
+    hold off
+    xlabel('t')
+    ylabel('y')
+    legend('Given data', 'Fitted curve')
+
+end
+
+function plt_comparison(x,x_opt)
+    ti = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
+    yi = [7.2, 3.0, 1.5, 0.85, 0.48, 0.25, 0.20, 0.15];
+
+    t = linspace(0,5,100);
+    y = x(1)*exp(x(2)*t);
+    y_opt = x_opt(1)*exp(x_opt(2)*t);
+
+    scatter(ti, yi, 'filled')
+    hold on
+    plot(t, y, '-r', 'LineWidth',1.5, 'Color','r')
+    plot(t, y_opt, '-r', 'LineWidth',1.5, 'Color','b')
+    hold off
+    xlabel('t')
+    ylabel('y')
+    legend('Given data', 'Fitted curve (LM)', 'Fitted curve (LSQCurveFit)')
+
+end
+ti = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
+yi = [7.2, 3.0, 1.5, 0.85, 0.48, 0.25, 0.20, 0.15];
+F = @(x,t) x(1) * exp(x(2)*t);
+
+x0 = [1,1].'; %starting guess
+
+[x,resnorm,residual]  = levmarq(@getObjectiveFunction, x0)
+
+
+% matlab built in solver:
+x_opt = lsqcurvefit(F, x0,ti, yi)
+
+%plot_func(x)
+diff = abs(x-x_opt)
+plt_comparison(x,x_opt)
+
+%getObjectiveFunction(x0)
+%plot_func(x0)
