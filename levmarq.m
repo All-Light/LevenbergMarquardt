@@ -34,7 +34,7 @@ function [x,resnorm,r] = levmarq(func,x0, options)
     
     % Func is a column vector of f1,... fm   
 
-    x = x0;
+    x = x0(:); % convert to column vector
     r = res(x); 
     m = length(r);
     n = length(x0);
@@ -47,7 +47,10 @@ function [x,resnorm,r] = levmarq(func,x0, options)
     while abs(resnorm-prev_resnorm) > tol  && nrIterations < maxIter
         jacobian = grad(x);
         assert(isequal(size(jacobian), [n,m]), 'Supplied gradient must be of size %dx%d',n,m); % we require correct size
-
+           
+        if norm(jacobian*r, inf) < tol % break if we are below tolerance
+            break
+        end
         JTJ = jacobian * jacobian.';
         %norm_jtj = norm(JTJ);
 
@@ -67,14 +70,14 @@ function [x,resnorm,r] = levmarq(func,x0, options)
             lambda = lambda/10;
         else
             % rejected, increase damping
-            lambda = lambda*10;
+            lambda = min(lambda*10, 1e16);
         end
         nrIterations = nrIterations+ 1;
     end
-
+    x = reshape(x, size(x0)); % convert it into the same shape as the input
     function r = res(x)
          r = func(x);
-         r = r(:);
+         r = r(:); % column
     end
     function G = grad(x)
         if useGrad

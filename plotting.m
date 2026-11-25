@@ -53,16 +53,16 @@ ti = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
 yi = [7.2, 3.0, 1.5, 0.85, 0.48, 0.25, 0.20, 0.15];
 F = @(x,t) x(1) * exp(x(2)*t);
 
-x0 = [1,1].'; %starting guess
+x0 = [-125,2.2]; %starting guess
 
 [x,resnorm,residual]  = levmarq(@getObjectiveFunction, x0);
 
-
+options = optimset('Display', 'iter', 'Algorithm', 'levenberg-marquardt');
 % matlab built in solver:
-x_opt = lsqcurvefit(F, x0,ti, yi);
+x_opt = lsqnonlin(@getObjectiveFunction,x0, [],[],options);
 
 %plot_func(x)
-sum(abs(x-x_opt)); 
+sum(abs(x-x_opt))
 plt_comparison(x,x_opt)
 
 %getObjectiveFunction(x0)
